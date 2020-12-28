@@ -46,40 +46,42 @@ def get_phone_numbers(vCard):
     return cell, home, work
 
 def get_info_list(vcard_filepath):
-    vcard = collections.OrderedDict()
-    for column in column_order:
-        vcard[column] = None
-    name = cell = work = home = email = note = None
+    vcards = []
     with open(vcard_filepath) as fp:
-        vCard_text = fp.read()
-    vCard = vobject.readOne(vCard_text)
-    vCard.validate()
-    for key, val in list(vCard.contents.items()):
-        if key == 'fn':
-            vcard['Full name'] = vCard.fn.value
-        elif key == 'n':
-            name = str(vCard.n.valueRepr()).replace('  ', ' ').strip()
-            vcard['Name'] = name
-        elif key == 'tel':
-            cell, home, work = get_phone_numbers(vCard)
-            vcard['Cell phone'] = cell
-            vcard['Home phone'] = home
-            vcard['Work phone'] = work
-        elif key == 'email':
-            email = str(vCard.email.value).strip()
-            vcard['Email'] = email
-        elif key == 'note':
-            note = str(vCard.note.value)
-            vcard['Note'] = note
-        else:
-            # An unused key, like `adr`, `title`, `url`, etc.
-            pass
-    if name is None:
-        logging.warning("no name for file `{}'".format(vcard_filepath))
-    if all(telephone_number is None for telephone_number in [cell, work, home]):
-        logging.warning("no telephone numbers for file `{}' with name `{}'".format(vcard_filepath, name))
+        vCards = vobject.readComponents(fp.read())
+    for vCard in vCards:
+        vCard.validate()
+        vcard = collections.OrderedDict()
+        for column in column_order:
+            vcard[column] = None
+        name = cell = work = home = email = note = None
+        for key, val in list(vCard.contents.items()):
+            if key == 'fn':
+                vcard['Full name'] = vCard.fn.value
+            elif key == 'n':
+                name = str(vCard.n.valueRepr()).replace('  ', ' ').strip()
+                vcard['Name'] = name
+            elif key == 'tel':
+                cell, home, work = get_phone_numbers(vCard)
+                vcard['Cell phone'] = cell
+                vcard['Home phone'] = home
+                vcard['Work phone'] = work
+            elif key == 'email':
+                email = str(vCard.email.value).strip()
+                vcard['Email'] = email
+            elif key == 'note':
+                note = str(vCard.note.value)
+                vcard['Note'] = note
+            else:
+                # An unused key, like `adr`, `title`, `url`, etc.
+                pass
+        if name is None:
+            logging.warning("no name for file `{}'".format(vcard_filepath))
+        if all(telephone_number is None for telephone_number in [cell, work, home]):
+            logging.debug("no telephone numbers for file `{}' with name `{}'".format(vcard_filepath, name))
+        vcards.append(vcard)
 
-    return vcard
+    return vcards
 
 def readable_directory(path):
     if not os.path.isdir(path):
@@ -149,8 +151,8 @@ def main():
         writer.writerow(column_order)
 
         for vcard_path in vcards:
-            vcard_info = get_info_list(vcard_path)
-            writer.writerow(list(vcard_info.values()))
+            for vcard_info in get_info_list(vcard_path):
+                writer.writerow(list(vcard_info.values()))
 
 if __name__ == "__main__":
     main()
