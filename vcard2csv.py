@@ -19,31 +19,32 @@ column_order = [
 ]
 
 def get_phone_numbers(vCard):
-    cell = home = work = None
+    # order determines priority; earlier-declarations take precendence
+    nums = {"CELL": None, "HOME": None, "WORK": None, "MAIN": None, "pref": None, "PAGER": None, "FAX": None, "OTEHR": None, "VOICE": None}
+    
     for tel in vCard.tel_list:
         if vCard.version.value == '2.1':
-            if 'CELL' in tel.singletonparams:
-                cell = str(tel.value).strip()
-            elif 'WORK' in tel.singletonparams:
-                work = str(tel.value).strip()
-            elif 'HOME' in tel.singletonparams:
-                home = str(tel.value).strip()
+            for k in nums:
+                if k in tel.singletonparams:
+                    nums[k] = str(tel.value).strip()
+                    break
             else:
                 logging.warning("Warning: Unrecognized phone number category in `{}'".format(vCard))
                 tel.prettyPrint()
         elif vCard.version.value == '3.0':
-            if 'CELL' in tel.params['TYPE']:
-                cell = str(tel.value).strip()
-            elif 'WORK' in tel.params['TYPE']:
-                work = str(tel.value).strip()
-            elif 'HOME' in tel.params['TYPE']:
-                home = str(tel.value).strip()
+            if 'TYPE' in tel.params:
+                for k in nums:
+                    if k in tel.params['TYPE']:
+                        nums[k] = str(tel.value).strip()
+                        break
+                else:
+                    logging.warning(f"Unrecognized phone number category {tel.params['TYPE']} in `{vCard}'")
+                    tel.prettyPrint()
             else:
-                logging.warning("Unrecognized phone number category in `{}'".format(vCard))
-                tel.prettyPrint()
+                logging.debug("No phone numbers in `{}'".format(vCard))
         else:
             raise NotImplementedError("Version not implemented: {}".format(vCard.version.value))
-    return cell, home, work
+    return nums["CELL"], nums["HOME"], nums["WORK"]
 
 def get_info_list(vcard_filepath):
     vcards = []
